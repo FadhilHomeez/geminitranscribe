@@ -49,7 +49,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       return res.status(500).json({ error: `Error processing audio file: ${error.message}` });
     }
 
-    const prompt = `Transcribe the audio provided. Identify the speakers sequentially as 'Speaker 1', 'Speaker 2', 'Speaker 3', 'Speaker 4', or 'Speaker 5' based on their turns. If there are fewer than 5 speakers, only use the necessary number of speaker labels (e.g., if only two speakers, use 'Speaker 1' and 'Speaker 2').
+    const prompt = `You are a REST API. The response will be in JSON format. Transcribe the audio provided. Identify the speakers sequentially as 'Speaker 1', 'Speaker 2', 'Speaker 3', 'Speaker 4', or 'Speaker 5' based on their turns. If there are fewer than 5 speakers, only use the necessary number of speaker labels (e.g., if only two speakers, use 'Speaker 1' and 'Speaker 2').
 Provide the full transcription first.
 After the full transcription, start a new section with the heading "Summary:" followed by a concise summary of the discussion, including main topics and any agreed-upon actions or concerns.
 

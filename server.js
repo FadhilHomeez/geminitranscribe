@@ -89,7 +89,59 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       result.candidates[0].content.parts.length > 0
     ) {
       const text = result.candidates[0].content.parts[0].text;
-      return res.json({ transcription: text });
+
+      const lines = text.split('\n');
+      let transcriptionLines = [];
+      let summaryLines = [];
+      let foundSummary = false;
+
+      // Keywords to identify the start of the summary section
+      const summaryKeywords = [
+        "Summary:", 
+        "SUMMARY:", 
+        "Key Points:", 
+        "KEY POINTS:", 
+        "## Summary", 
+        "## Key Points"
+      ];
+
+      for (const line of lines) {
+        if (!foundSummary) {
+          let isSummaryKeywordLine = false;
+          for (const keyword of summaryKeywords) {
+            if (line.trim().startsWith(keyword)) {
+              isSummaryKeywordLine = true;
+              foundSummary = true;
+              const summaryStartText = line.trim().substring(keyword.length).trim();
+              if (summaryStartText) {
+                summaryLines.push(summaryStartText);
+              }
+              break; 
+            }
+          }
+          if (!isSummaryKeywordLine && !foundSummary) {
+            transcriptionLines.push(line);
+          }
+        } else {
+          summaryLines.push(line);
+        }
+      }
+
+      const transcriptionText = transcriptionLines.join('\n').trim();
+      const summaryText = summaryLines.join('\n').trim();
+
+      if (!foundSummary && transcriptionText) {
+        // If no summary keyword found, but there is text, assume all is transcription
+        return res.json({
+          transcription: transcriptionText,
+          summary: "Summary not explicitly found in the output."
+        });
+      } else {
+        return res.json({
+          transcription: transcriptionText,
+          summary: summaryText
+        });
+      }
     } else {
       return res.status(500).json({ error: "Gemini API response did not contain expected content.", raw: result });
     }

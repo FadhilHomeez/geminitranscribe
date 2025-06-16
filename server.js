@@ -41,13 +41,18 @@ bot.on('message', async msg => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
     if (msg.text && msg.text.trim() === '/transcription') {
       if (lastSummary && lastSummary.trim() !== '') {
+        // Format transcription for Telegram
+        let formatted = lastSummary
+          // Bold speaker names (e.g., Speaker 1:)
+          .replace(/^(Speaker \d+:)/gim, '*$1*')
+          // Add extra line breaks between speaker turns
+          .replace(/(\n)(Speaker \d+:)/g, '\n\n$2');
         // Send the header first
-        await bot.sendMessage(TELEGRAM_CHAT_ID, 'Transcription:\n\n');
-        
+        await bot.sendMessage(TELEGRAM_CHAT_ID, 'Transcription:\n\n', { parse_mode: 'Markdown' });
         // Split and send the transcription
-        const messages = splitMessage(lastSummary);
+        const messages = splitMessage(formatted);
         for (const message of messages) {
-          await bot.sendMessage(TELEGRAM_CHAT_ID, message);
+          await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' });
         }
         return;
       } else {

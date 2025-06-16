@@ -17,16 +17,19 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 
 let lastSummary = null; // Store the last summary
+let awaitingAmendment = false; // Track if waiting for amendment instruction
 
 // Listen for Telegram messages to update the summary or amend it
 bot.on('message', async (msg) => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
-    if (lastSummary !== null && msg.text && msg.text.startsWith('/amend')) {
-      const userPrompt = msg.text.replace('/amend', '').trim();
-      if (!userPrompt) {
-        bot.sendMessage(TELEGRAM_CHAT_ID, 'Please provide amendment instructions after /amend.');
-        return;
-      }
+    if (lastSummary !== null && msg.text && msg.text.trim() === '/amend') {
+      awaitingAmendment = true;
+      bot.sendMessage(TELEGRAM_CHAT_ID, 'Please send the amendment instructions for the summary.');
+      return;
+    }
+    if (lastSummary !== null && awaitingAmendment && msg.text && msg.text.trim() !== '/amend') {
+      const userPrompt = msg.text.trim();
+      awaitingAmendment = false;
       // Compose amendment prompt for Gemini
       const amendPrompt = `Here is the current summary:\n${lastSummary}\n\nAmend the summary according to this instruction: ${userPrompt}\n\nReturn only the revised summary.`;
       const payload = {
@@ -69,7 +72,9 @@ bot.on('message', async (msg) => {
       } catch (err) {
         bot.sendMessage(TELEGRAM_CHAT_ID, `Error amending summary: ${err.message}`);
       }
-    } else if (lastSummary !== null) {
+      return;
+    }
+    if (lastSummary !== null && !awaitingAmendment && msg.text && !msg.text.startsWith('/')) {
       lastSummary = msg.text;
       bot.sendMessage(TELEGRAM_CHAT_ID, 'Summary updated.');
     }

@@ -212,13 +212,14 @@ bot.on('message', async msg => {
 
 const app = express();
 const fifteenMB = 15 * 1024 * 1024; // 15 MB in bytes
+const fiftyMB = 50 * 1024 * 1024; // 50 MB in bytes
 
 const MAX_CONCURRENT_REQUESTS = 5; // Limit simultaneous requests
 let currentConcurrentRequests = 0;
 
 const upload = multer({
   storage: multer.memoryStorage(), // Use memory storage
-  limits: { fileSize: fifteenMB }
+  limits: { fileSize: fiftyMB }
 });
 
 // Add a root endpoint for a quick health check
@@ -395,6 +396,14 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
   } finally {
     currentConcurrentRequests--;
   }
+});
+
+// Multer error handler for file too large
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File too large. Please upload a file smaller than 50MB.' });
+  }
+  next(err);
 });
 
 // Optional: Add an endpoint to get the current summary

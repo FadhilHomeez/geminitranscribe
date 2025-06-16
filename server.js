@@ -24,7 +24,7 @@ bot.on('message', async (msg) => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
     if (lastSummary !== null && msg.text && msg.text.trim() === '/amend') {
       awaitingAmendment = true;
-      bot.sendMessage(TELEGRAM_CHAT_ID, 'Please send the amendment instructions for the summary.');
+      bot.sendMessage(TELEGRAM_CHAT_ID, 'Amendment mode enabled. Please send the amendment instructions for the summary.');
       return;
     }
     if (lastSummary !== null && awaitingAmendment && msg.text && msg.text.trim() !== '/amend') {
@@ -118,7 +118,7 @@ bot.on('message', async (msg) => {
     }
     if (lastSummary !== null && !awaitingAmendment && msg.text && !msg.text.startsWith('/')) {
       lastSummary = msg.text;
-      bot.sendMessage(TELEGRAM_CHAT_ID, 'Summary updated.');
+      bot.sendMessage(TELEGRAM_CHAT_ID, `Summary updated:\n\n${lastSummary}`);
     }
   }
 });

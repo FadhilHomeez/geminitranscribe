@@ -66,6 +66,48 @@ bot.on('message', async (msg) => {
         ) {
           lastSummary = result.candidates[0].content.parts[0].text.trim();
           bot.sendMessage(TELEGRAM_CHAT_ID, `Summary amended:\n\n${lastSummary}`);
+
+          // Regenerate the summary for conciseness and freshness
+          const regenPrompt = `Please summarize the following text, making it concise and clear:\n${lastSummary}\n\nReturn only the summary.`;
+          const regenPayload = {
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: regenPrompt }
+                ],
+              },
+            ],
+          };
+          try {
+            const regenResponse = await fetch(API_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(regenPayload),
+            });
+            if (!regenResponse.ok) {
+              const errorData = await regenResponse.json();
+              bot.sendMessage(TELEGRAM_CHAT_ID, `Gemini API error during regeneration: ${errorData.error.message}`);
+              return;
+            }
+            const regenResult = await regenResponse.json();
+            if (
+              regenResult.candidates &&
+              regenResult.candidates.length > 0 &&
+              regenResult.candidates[0].content &&
+              regenResult.candidates[0].content.parts &&
+              regenResult.candidates[0].content.parts.length > 0
+            ) {
+              lastSummary = regenResult.candidates[0].content.parts[0].text.trim();
+              bot.sendMessage(TELEGRAM_CHAT_ID, `Regenerated summary:\n\n${lastSummary}`);
+            } else {
+              bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini API did not return a regenerated summary.');
+            }
+          } catch (regenErr) {
+            bot.sendMessage(TELEGRAM_CHAT_ID, `Error regenerating summary: ${regenErr.message}`);
+          }
         } else {
           bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini API did not return an amended summary.');
         }

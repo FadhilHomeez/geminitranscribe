@@ -3,6 +3,8 @@ require('dotenv').config(); // Load environment variables from .env
 const express = require('express');
 const multer = require('multer');
 const TelegramBot = require('node-telegram-bot-api'); // Add Telegram bot import
+const fs = require('fs');
+const { exec } = require('child_process');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
@@ -22,6 +24,8 @@ const MAX_TELEGRAM_MESSAGE_LENGTH = 4096; // Telegram message limit
 let lastSummary = null; // Store the full transcription
 let originalSummary = null; // Store the original summary
 let awaitingAmendment = false; // Track if waiting for amendment instruction
+
+const MAX_FILE_SIZE_BEFORE_COMPRESSION = 10 * 1024 * 1024; // 10MB
 
 // Function to split a long text into multiple messages
 function splitMessage(text, maxLength = MAX_TELEGRAM_MESSAGE_LENGTH) {
@@ -235,12 +239,37 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 
     const originalName = req.file.originalname;
     let base64Audio, mimeType;
+    let audioBuffer = req.file.buffer;
 
     try {
-      if (!req.file.buffer) {
+      if (!audioBuffer) {
         return res.status(500).json({ error: 'File buffer not available.' });
       }
-      base64Audio = req.file.buffer.toString('base64'); // Get data from buffer
+
+      if (audioBuffer.length > MAX_FILE_SIZE_BEFORE_COMPRESSION) {
+        // Save buffer to temp file
+        const tempFilePath = `/tmp/${Date.now()}-${originalName}`;
+        fs.writeFileSync(tempFilePath, audioBuffer);
+
+        // Compress with ffmpeg to mp3 64kbps
+        const compressedFilePath = `/tmp/compressed-${Date.now()}-${originalName}.mp3`;
+        const ffmpegCommand = `ffmpeg -y -i "${tempFilePath}" -vn -acodec libmp3lame -ab 64k "${compressedFilePath}"`;
+
+        await new Promise((resolve, reject) => {
+          exec(ffmpegCommand, (error) => {
+            fs.unlinkSync(tempFilePath);
+            if (error) return reject(error);
+            resolve();
+          });
+        });
+
+        audioBuffer = fs.readFileSync(compressedFilePath);
+        fs.unlinkSync(compressedFilePath);
+        base64Audio = audioBuffer.toString('base64');
+        mimeType = 'audio/mpeg';
+      } else {
+        base64Audio = audioBuffer.toString('base64');
+      }
 
       if (originalName.endsWith('.mp3')) {
         mimeType = 'audio/mpeg';
@@ -257,7 +286,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       console.error(`Error processing audio file from memory: ${error.message}`);
       return res.status(500).json({ error: `Error processing audio file: ${error.message}` });
     }
-s
+
     const prompt = `Transcribe the audio conversation provided. Include all speakers and their dialogue.`;
 
     const payload = {

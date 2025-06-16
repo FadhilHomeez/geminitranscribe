@@ -248,14 +248,16 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
         mimeType = 'audio/wav';
       } else if (originalName.endsWith('.flac')) {
         mimeType = 'audio/flac';
+      } else if (originalName.endsWith('.m4a')) {
+        mimeType = 'audio/mp4';
       } else {
-        return res.status(400).json({ error: "Unsupported audio file type. Please use .mp3, .wav, or .flac." });
+        return res.status(400).json({ error: "Unsupported audio file type. Please use .mp3, .wav, .flac, or .m4a." });
       }
     } catch (error) {
       console.error(`Error processing audio file from memory: ${error.message}`);
       return res.status(500).json({ error: `Error processing audio file: ${error.message}` });
     }
-
+s
     const prompt = `Transcribe the audio conversation provided. Include all speakers and their dialogue.`;
 
     const payload = {

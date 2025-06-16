@@ -41,10 +41,13 @@ bot.on('message', async msg => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
     if (msg.text && msg.text.trim() === '/transcription') {
       if (lastSummary && lastSummary.trim() !== '') {
+        // Send the header first
+        await bot.sendMessage(TELEGRAM_CHAT_ID, 'Transcription:\n\n');
+        
+        // Split and send the transcription
         const messages = splitMessage(lastSummary);
-        for (let i = 0; i < messages.length; i++) {
-          const prefix = i === 0 ? 'Transcription:\n\n' : '';
-          await bot.sendMessage(TELEGRAM_CHAT_ID, `${prefix}${messages[i]}`);
+        for (const message of messages) {
+          await bot.sendMessage(TELEGRAM_CHAT_ID, message);
         }
         return;
       } else {

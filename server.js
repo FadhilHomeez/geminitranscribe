@@ -14,13 +14,14 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
   console.error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables.');
   process.exit(1);
 }
+
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 let lastSummary = null; // Store the last summary
 let awaitingAmendment = false; // Track if waiting for amendment instruction
 
 // Listen for Telegram messages to update the summary or amend it
-bot.on('message', async (msg) => {
+bot.on('message', async msg => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
     if (lastSummary !== null && msg.text && msg.text.trim() === '/amend') {
       awaitingAmendment = true;

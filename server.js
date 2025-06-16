@@ -1,3 +1,5 @@
+require('dotenv').config(); // Load environment variables from .env
+
 const express = require('express');
 const multer = require('multer');
 const TelegramBot = require('node-telegram-bot-api'); // Add Telegram bot import

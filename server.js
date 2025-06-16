@@ -27,6 +27,11 @@ const upload = multer({
   limits: { fileSize: fifteenMB }
 });
 
+// Add a root endpoint for a quick health check
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
+
 app.post('/transcribe', upload.single('audio'), async (req, res) => {
   if (currentConcurrentRequests >= MAX_CONCURRENT_REQUESTS) {
     return res.status(429).json({ error: 'Too many simultaneous requests. Please try again later.' });

@@ -40,7 +40,7 @@ function splitMessage(text, maxLength = MAX_TELEGRAM_MESSAGE_LENGTH) {
 bot.on('message', async msg => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
     if (msg.text && msg.text.trim() === '/transcription') {
-      if (lastSummary) {
+      if (lastSummary && lastSummary.trim() !== '') {
         const messages = splitMessage(lastSummary);
         for (const message of messages) {
           await bot.sendMessage(TELEGRAM_CHAT_ID, `Transcription:\n\n${message}`);
@@ -82,6 +82,16 @@ bot.on('message', async msg => {
         });
         if (!response.ok) {
           const errorData = await response.json();
+          // Handle Gemini model overload error
+          if (
+            errorData &&
+            errorData.error &&
+            typeof errorData.error.message === 'string' &&
+            errorData.error.message.toLowerCase().includes('model is overloaded')
+          ) {
+            await bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini model is overloaded. Please try again later.');
+            return;
+          }
           bot.sendMessage(TELEGRAM_CHAT_ID, `Gemini API error: ${errorData.error.message}`);
           return;
         }
@@ -118,6 +128,16 @@ bot.on('message', async msg => {
             });
             if (!regenResponse.ok) {
               const errorData = await regenResponse.json();
+              // Handle Gemini model overload error
+              if (
+                errorData &&
+                errorData.error &&
+                typeof errorData.error.message === 'string' &&
+                errorData.error.message.toLowerCase().includes('model is overloaded')
+              ) {
+                await bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini model is overloaded. Please try again later.');
+                return;
+              }
               bot.sendMessage(TELEGRAM_CHAT_ID, `Gemini API error during regeneration: ${errorData.error.message}`);
               return;
             }
@@ -180,6 +200,16 @@ bot.on('message', async msg => {
 
         if (!askResponse.ok) {
           const errorData = await askResponse.json();
+          // Handle Gemini model overload error
+          if (
+            errorData &&
+            errorData.error &&
+            typeof errorData.error.message === 'string' &&
+            errorData.error.message.toLowerCase().includes('model is overloaded')
+          ) {
+            await bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini model is overloaded. Please try again later.');
+            return;
+          }
           bot.sendMessage(TELEGRAM_CHAT_ID, `Gemini API error: ${errorData.error.message}`);
           return;
         }
@@ -319,6 +349,16 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        // Handle Gemini model overload error
+        if (
+          errorData &&
+          errorData.error &&
+          typeof errorData.error.message === 'string' &&
+          errorData.error.message.toLowerCase().includes('model is overloaded')
+        ) {
+          await bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini model is overloaded. Please try again later.');
+          return res.status(503).json({ error: 'Gemini model is overloaded. Please try again later.' });
+        }
         return res.status(500).json({ error: errorData.error.message });
       }
 
@@ -356,6 +396,16 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
           });
           if (!summaryResponse.ok) {
             const errorData = await summaryResponse.json();
+            // Handle Gemini model overload error
+            if (
+              errorData &&
+              errorData.error &&
+              typeof errorData.error.message === 'string' &&
+              errorData.error.message.toLowerCase().includes('model is overloaded')
+            ) {
+              await bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini model is overloaded. Please try again later.');
+              return res.status(503).json({ error: 'Gemini model is overloaded. Please try again later.' });
+            }
             return res.status(500).json({ error: errorData.error.message });
           }
           const summaryResult = await summaryResponse.json();

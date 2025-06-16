@@ -16,6 +16,66 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
 }
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 
+let lastSummary = null; // Store the last summary
+
+// Listen for Telegram messages to update the summary or amend it
+bot.on('message', async (msg) => {
+  if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
+    if (lastSummary !== null && msg.text && msg.text.startsWith('/amend')) {
+      const userPrompt = msg.text.replace('/amend', '').trim();
+      if (!userPrompt) {
+        bot.sendMessage(TELEGRAM_CHAT_ID, 'Please provide amendment instructions after /amend.');
+        return;
+      }
+      // Compose amendment prompt for Gemini
+      const amendPrompt = `Here is the current summary:\n${lastSummary}\n\nAmend the summary according to this instruction: ${userPrompt}\n\nReturn only the revised summary.`;
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: amendPrompt }
+            ],
+          },
+        ],
+      };
+      try {
+        const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          bot.sendMessage(TELEGRAM_CHAT_ID, `Gemini API error: ${errorData.error.message}`);
+          return;
+        }
+        const result = await response.json();
+        if (
+          result.candidates &&
+          result.candidates.length > 0 &&
+          result.candidates[0].content &&
+          result.candidates[0].content.parts &&
+          result.candidates[0].content.parts.length > 0
+        ) {
+          lastSummary = result.candidates[0].content.parts[0].text.trim();
+          bot.sendMessage(TELEGRAM_CHAT_ID, `Summary amended:\n\n${lastSummary}`);
+        } else {
+          bot.sendMessage(TELEGRAM_CHAT_ID, 'Gemini API did not return an amended summary.');
+        }
+      } catch (err) {
+        bot.sendMessage(TELEGRAM_CHAT_ID, `Error amending summary: ${err.message}`);
+      }
+    } else if (lastSummary !== null) {
+      lastSummary = msg.text;
+      bot.sendMessage(TELEGRAM_CHAT_ID, 'Summary updated.');
+    }
+  }
+});
+
 const app = express();
 const fifteenMB = 15 * 1024 * 1024; // 15 MB in bytes
 
@@ -115,6 +175,7 @@ The conversation focused on project deadlines and resource allocation. Key point
         result.candidates[0].content.parts.length > 0
       ) {
         const text = result.candidates[0].content.parts[0].text.trim();
+        lastSummary = text; // Store the summary
         try {
           await bot.sendMessage(TELEGRAM_CHAT_ID, `Summary:\n\n${text}`);
           return res.json({ message: "Summary sent to Telegram successfully." });
@@ -131,6 +192,14 @@ The conversation focused on project deadlines and resource allocation. Key point
   } finally {
     currentConcurrentRequests--;
   }
+});
+
+// Optional: Add an endpoint to get the current summary
+app.get('/summary', (req, res) => {
+  if (lastSummary === null) {
+    return res.status(404).json({ error: 'No summary available.' });
+  }
+  res.json({ summary: lastSummary });
 });
 
 const PORT = process.env.PORT || 3000;

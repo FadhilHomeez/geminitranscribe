@@ -42,8 +42,9 @@ bot.on('message', async msg => {
     if (msg.text && msg.text.trim() === '/transcription') {
       if (lastSummary && lastSummary.trim() !== '') {
         const messages = splitMessage(lastSummary);
-        for (const message of messages) {
-          await bot.sendMessage(TELEGRAM_CHAT_ID, `Transcription:\n\n${message}`);
+        for (let i = 0; i < messages.length; i++) {
+          const prefix = i === 0 ? 'Transcription:\n\n' : '';
+          await bot.sendMessage(TELEGRAM_CHAT_ID, `${prefix}${messages[i]}`);
         }
         return;
       } else {

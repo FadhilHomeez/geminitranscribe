@@ -309,7 +309,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       if (audioBuffer.length > MAX_FILE_SIZE_BEFORE_COMPRESSION) {
         // Save buffer to temp file
         const tempFilePath = `/tmp/${Date.now()}-${originalName}`;
-        fs.writeFileSync(tempFilePath);
+        fs.writeFileSync(tempFilePath, audioBuffer); // <-- fix: add audioBuffer as second argument
 
         // Compress with ffmpeg to mp3 64kbps
         const compressedFilePath = `/tmp/compressed-${Date.now()}-${originalName}.mp3`;

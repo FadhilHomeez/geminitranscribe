@@ -1,8 +1,18 @@
 const express = require('express');
 const multer = require('multer');
+const TelegramBot = require('node-telegram-bot-api'); // Add Telegram bot import
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+
+// Telegram Bot setup
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+  console.error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in environment variables.');
+  process.exit(1);
+}
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 
 const app = express();
 const fifteenMB = 15 * 1024 * 1024; // 15 MB in bytes
@@ -98,7 +108,13 @@ The conversation focused on project deadlines and resource allocation. Key point
         result.candidates[0].content.parts.length > 0
       ) {
         const text = result.candidates[0].content.parts[0].text.trim();
-        return res.json({ summary: text });
+        try {
+          await bot.sendMessage(TELEGRAM_CHAT_ID, `Summary:\n\n${text}`);
+          return res.json({ message: "Summary sent to Telegram successfully." });
+        } catch (telegramError) {
+          console.error(`Error sending summary to Telegram: ${telegramError.message}`);
+          return res.status(500).json({ error: "Summary generated but failed to send to Telegram.", telegram_error: telegramError.message });
+        }
       } else {
         return res.status(500).json({ error: "Gemini API response did not contain expected content.", raw: result });
       }

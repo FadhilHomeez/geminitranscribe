@@ -5,6 +5,8 @@ const multer = require('multer');
 const TelegramBot = require('node-telegram-bot-api'); // Add Telegram bot import
 const fs = require('fs');
 const { exec } = require('child_process');
+const os = require('os');
+const path = require('path');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
@@ -36,23 +38,41 @@ function splitMessage(text, maxLength = MAX_TELEGRAM_MESSAGE_LENGTH) {
   return messages;
 }
 
+// Helper to convert transcription to CSV
+function transcriptionToCSV(transcription) {
+  // Expecting lines like: Speaker 1: Hello
+  // CSV: Speaker,Text
+  const lines = transcription.split('\n').filter(Boolean);
+  const csvRows = [['Speaker', 'Text']];
+  for (const line of lines) {
+    const match = line.match(/^(Speaker \d+):\s*(.*)$/);
+    if (match) {
+      csvRows.push([match[1], match[2]]);
+    } else {
+      // If not matching, put in Text column only
+      csvRows.push(['', line]);
+    }
+  }
+  return csvRows.map(row => row.map(field => `"${field.replace(/"/g, '""')}"`).join(',')).join('\n');
+}
+
 // Listen for Telegram messages to update the summary or amend it
 bot.on('message', async msg => {
   if (msg.chat && msg.chat.id && msg.chat.id.toString() === TELEGRAM_CHAT_ID) {
     if (msg.text && msg.text.trim() === '/transcription') {
       if (lastSummary && lastSummary.trim() !== '') {
-        // Format transcription for Telegram
-        let formatted = lastSummary
-          // Bold speaker names (e.g., Speaker 1:)
-          .replace(/^(Speaker \d+:)/gim, '*$1*')
-          // Add extra line breaks between speaker turns
-          .replace(/(\n)(Speaker \d+:)/g, '\n\n$2');
-        // Send the header first
-        await bot.sendMessage(TELEGRAM_CHAT_ID, 'Transcription:\n\n', { parse_mode: 'Markdown' });
-        // Split and send the transcription
-        const messages = splitMessage(formatted);
-        for (const message of messages) {
-          await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' });
+        // Generate CSV
+        const csvContent = transcriptionToCSV(lastSummary);
+        const tmpPath = path.join(os.tmpdir(), `transcription-${Date.now()}.csv`);
+        fs.writeFileSync(tmpPath, csvContent);
+
+        try {
+          await bot.sendDocument(TELEGRAM_CHAT_ID, tmpPath, {}, {
+            filename: 'transcription.csv',
+            contentType: 'text/csv'
+          });
+        } finally {
+          fs.unlinkSync(tmpPath);
         }
         return;
       } else {
@@ -289,7 +309,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       if (audioBuffer.length > MAX_FILE_SIZE_BEFORE_COMPRESSION) {
         // Save buffer to temp file
         const tempFilePath = `/tmp/${Date.now()}-${originalName}`;
-        fs.writeFileSync(tempFilePath, audioBuffer);
+        fs.writeFileSync(tempFilePath);
 
         // Compress with ffmpeg to mp3 64kbps
         const compressedFilePath = `/tmp/compressed-${Date.now()}-${originalName}.mp3`;
